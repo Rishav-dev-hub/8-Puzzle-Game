@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<!-- saved from url=(0048)file:///C:/Users/KIIT0001/Downloads/8puzzle.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8 Puzzle — Solver &amp; Game</title>
+<link href="./8 Puzzle — Solver &amp; Game_files/css2" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --card: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #7c5cfc;
+    --accent2: #fc5c7d;
+    --accent3: #56cfe1;
+    --gold: #ffd700;
+    --text: #e8e8f0;
+    --muted: #6b6b88;
+    --tile-bg: #1e1e2e;
+    --tile-active: #2a2a42;
+    --success: #56cfb2;
+    --warning: #fca05c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at 20% 20%, rgba(124,92,252,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(252,92,125,0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(86,207,225,0.04) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .container { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 20px; }
+  
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 0 30px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 30px;
+  }
+  .logo {
+    font-size: 2rem; font-weight: 800; letter-spacing: -2px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .logo span { color: var(--accent3); -webkit-text-fill-color: var(--accent3); }
+  .badge {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    padding: 6px 14px; border-radius: 20px; font-size: 0.75rem;
+    font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+  }
+  
+  .main-grid {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+  
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .panel-title {
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+  }
+  .panel-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  
+  /* Puzzle Board */
+  .board-section { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+  .puzzle-board {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 6px; padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 290px; height: 290px;
+  }
+  .tile {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem; font-weight: 800;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+    position: relative;
+    font-family: 'Syne', sans-serif;
+  }
+  .tile.number {
+    background: var(--tile-active);
+    border: 2px solid var(--border);
+    color: var(--text);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .tile.number:hover {
+    background: #2e2e46;
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(124,92,252,0.3);
+  }
+  .tile.empty {
+    background: transparent;
+    border: 2px dashed var(--border);
+    opacity: 0.3;
+    cursor: default;
+  }
+  .tile.hint-tile {
+    border-color: var(--gold) !important;
+    box-shadow: 0 0 15px rgba(255,215,0,0.5) !important;
+    animation: pulse-gold 1s infinite;
+  }
+  .tile.solving { animation: solving-pulse 0.3s ease; }
+  @keyframes pulse-gold { 0%,100%{opacity:1} 50%{opacity:0.6} }
+  @keyframes solving-pulse { 0%{transform:scale(1)} 50%{transform:scale(0.92)} 100%{transform:scale(1)} }
+  @keyframes tile-win { 0%{transform:scale(1)} 50%{transform:scale(1.1) rotate(5deg)} 100%{transform:scale(1)} }
+  .tile.win-anim { animation: tile-win 0.5s ease forwards; }
+  
+  /* Stats Bar */
+  .stats-bar {
+    display: flex; gap: 16px; width: 100%; justify-content: center;
+  }
+  .stat {
+    display: flex; flex-direction: column; align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 18px;
+    min-width: 80px;
+  }
+  .stat-val { font-size: 1.4rem; font-weight: 800; font-family: 'JetBrains Mono'; color: var(--accent); }
+  .stat-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+  .stat-val.gold { color: var(--gold); }
+  
+  /* Buttons */
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: 100%; }
+  .btn {
+    padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border);
+    font-family: 'Syne'; font-weight: 700; font-size: 0.8rem;
+    cursor: pointer; transition: all 0.2s; letter-spacing: 0.5px;
+    background: var(--surface); color: var(--text);
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  .btn.primary:hover { background: #8d6ffd; box-shadow: 0 4px 15px rgba(124,92,252,0.4); }
+  .btn.danger { background: rgba(252,92,125,0.1); border-color: var(--accent2); color: var(--accent2); }
+  .btn.danger:hover { background: var(--accent2); color: white; }
+  .btn.success-btn { background: rgba(86,207,178,0.1); border-color: var(--success); color: var(--success); }
+  .btn.success-btn:hover { background: var(--success); color: #0a0a0f; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  
+  /* Algo Selector */
+  .algo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .algo-btn {
+    padding: 10px; border-radius: 10px; border: 2px solid var(--border);
+    background: var(--surface); color: var(--muted);
+    font-family: 'Syne'; font-weight: 700; font-size: 0.75rem;
+    cursor: pointer; transition: all 0.2s; text-align: center;
+  }
+  .algo-btn.active { border-color: var(--accent); color: var(--text); background: rgba(124,92,252,0.1); }
+  .algo-btn .algo-name { font-size: 0.85rem; display: block; }
+  .algo-btn .algo-desc { font-size: 0.65rem; opacity: 0.6; margin-top: 2px; display: block; }
+  
+  /* Right Panel */
+  .right-panel { display: flex; flex-direction: column; gap: 20px; }
+  
+  /* Solution steps */
+  .steps-container {
+    max-height: 260px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .steps-container::-webkit-scrollbar { width: 4px; }
+  .steps-container::-webkit-scrollbar-track { background: var(--surface); }
+  .steps-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  
+  .step-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-radius: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    font-size: 0.8rem; transition: all 0.2s;
+  }
+  .step-item.current { border-color: var(--accent); background: rgba(124,92,252,0.1); }
+  .step-item.done { border-color: var(--success); opacity: 0.5; }
+  .step-num { color: var(--muted); font-family: 'JetBrains Mono'; font-size: 0.7rem; min-width: 28px; }
+  .step-board {
+    display: grid; grid-template-columns: repeat(3,1fr);
+    gap: 2px; width: 54px; height: 54px; flex-shrink: 0;
+  }
+  .step-cell {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--tile-active); border-radius: 3px;
+    font-size: 0.6rem; font-weight: 700; color: var(--text);
+    font-family: 'JetBrains Mono';
+  }
+  .step-cell.moved { background: var(--accent); color: white; }
+  .step-cell.empty { background: var(--border); opacity: 0.3; }
+  .step-info { flex: 1; }
+  .step-direction { font-weight: 700; color: var(--text); }
+  .step-detail { color: var(--muted); font-size: 0.7rem; margin-top: 2px; }
+  
+  /* Comparison Table */
+  .comparison-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
+  .comparison-table th {
+    padding: 8px 12px; text-align: left;
+    font-size: 0.65rem; color: var(--muted);
+    font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  }
+  .comparison-table td {
+    padding: 10px 12px; background: var(--surface);
+    font-size: 0.82rem; font-family: 'JetBrains Mono';
+  }
+  .comparison-table td:first-child { border-radius: 8px 0 0 8px; font-family: 'Syne'; font-weight: 700; color: var(--text); }
+  .comparison-table td:last-child { border-radius: 0 8px 8px 0; }
+  .comparison-table tr.best td { background: rgba(86,207,178,0.1); }
+  .comparison-table tr.best td:first-child { color: var(--success); }
+  .bar-cell { min-width: 100px; }
+  .bar { height: 6px; border-radius: 3px; background: var(--border); position: relative; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+  
+  /* Hint panel */
+  .hint-box {
+    background: rgba(255,215,0,0.05);
+    border: 1px solid rgba(255,215,0,0.2);
+    border-radius: 10px; padding: 14px;
+    display: none;
+  }
+  .hint-box.show { display: block; }
+  .hint-title { color: var(--gold); font-weight: 700; font-size: 0.75rem; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .hint-text { color: var(--text); font-size: 0.85rem; line-height: 1.5; }
+  
+  /* Win screen */
+  .win-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(10px);
+  }
+  .win-overlay.show { display: flex; }
+  .win-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 24px; padding: 40px; text-align: center;
+    max-width: 400px; width: 90%;
+    animation: win-appear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes win-appear { from{transform:scale(0.5);opacity:0} to{transform:scale(1);opacity:1} }
+  .win-emoji { font-size: 4rem; margin-bottom: 16px; }
+  .win-title { font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .win-stats { display: flex; gap: 16px; justify-content: center; margin: 20px 0; }
+  
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 20px; right: 20px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 18px;
+    font-size: 0.85rem; z-index: 200;
+    transform: translateY(60px); opacity: 0;
+    transition: all 0.3s ease;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  
+  /* Playback controls */
+  .playback-controls {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .speed-slider {
+    -webkit-appearance: none; width: 80px; height: 4px;
+    background: var(--border); border-radius: 2px; outline: none;
+  }
+  .speed-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 12px; height: 12px;
+    background: var(--accent); border-radius: 50%; cursor: pointer;
+  }
+  
+  .progress-bar {
+    width: 100%; height: 3px; background: var(--border);
+    border-radius: 2px; margin-top: 8px;
+  }
+  .progress-fill {
+    height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px; transition: width 0.3s;
+  }
+  
+  /* Difficulty */
+  .diff-row { display: flex; gap: 6px; }
+  .diff-btn {
+    padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--muted);
+    font-family: 'Syne'; font-weight: 700; font-size: 0.7rem;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .diff-btn.active { border-color: var(--accent2); color: var(--accent2); background: rgba(252,92,125,0.1); }
+  
+  .info-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .chip {
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 0.65rem; font-weight: 700;
+    border: 1px solid;
+  }
+  .chip.bfs { border-color: var(--accent); color: var(--accent); background: rgba(124,92,252,0.1); }
+  .chip.dfs { border-color: var(--accent2); color: var(--accent2); background: rgba(252,92,125,0.1); }
+  .chip.astar { border-color: var(--success); color: var(--success); background: rgba(86,207,178,0.1); }
+  .chip.gbfs { border-color: var(--warning); color: var(--warning); background: rgba(252,160,92,0.1); }
+  
+  .algo-info-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px; font-size: 0.82rem;
+    line-height: 1.6; color: var(--muted); display: none;
+  }
+  .algo-info-box.show { display: block; }
+  .algo-info-box strong { color: var(--text); }
+  
+  .no-solution { color: var(--accent2); font-size: 0.85rem; padding: 10px; text-align: center; }
+  
+  @media (max-width: 900px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .puzzle-board { width: 270px; height: 270px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">8<span>.</span>PUZZLE</div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="font-size:0.75rem;color:var(--muted)">Algorithm Visualizer</div>
+      <div class="badge">Interactive</div>
+    </div>
+  </header>
+  
+  <div class="main-grid">
+    <!-- LEFT PANEL -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      
+      <!-- Game Board -->
+      <div class="panel board-section">
+        <div class="panel-title">Game Board</div>
+        <div class="puzzle-board" id="board"><div class="tile number win-anim">1</div><div class="tile number win-anim">2</div><div class="tile number win-anim">3</div><div class="tile number win-anim">4</div><div class="tile number win-anim">5</div><div class="tile number win-anim">6</div><div class="tile number win-anim">7</div><div class="tile number win-anim">8</div><div class="tile empty"></div></div>
+        
+        <div class="stats-bar">
+          <div class="stat"><span class="stat-val" id="moves-count">22</span><span class="stat-label">Moves</span></div>
+          <div class="stat"><span class="stat-val gold" id="best-moves">4</span><span class="stat-label">Best</span></div>
+          <div class="stat"><span class="stat-val" id="timer-val">0:58</span><span class="stat-label">Time</span></div>
+        </div>
+        
+        <div style="width:100%">
+          <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--muted);margin-bottom:4px">
+            <span>Progress</span><span id="progress-pct">100%</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width: 100%;"></div></div>
+        </div>
+        
+        <div class="btn-row">
+          <button class="btn primary" onclick="newGame()">New Game</button>
+          <button class="btn success-btn" onclick="showHint()">💡 Hint</button>
+          <button class="btn" onclick="undoMove()">↩ Undo</button>
+          <button class="btn danger" onclick="resetBoard()">Reset</button>
+        </div>
+        
+        <div style="width:100%">
+          <div class="panel-title">Difficulty</div>
+          <div class="diff-row">
+            <button class="diff-btn active" onclick="setDifficulty(10,&#39;this&#39;)">Easy</button>
+            <button class="diff-btn" onclick="setDifficulty(25,&#39;this&#39;)">Medium</button>
+            <button class="diff-btn" onclick="setDifficulty(50,&#39;this&#39;)">Hard</button>
+            <button class="diff-btn" onclick="setDifficulty(100,&#39;this&#39;)">Expert</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Algorithm Selector -->
+      <div class="panel">
+        <div class="panel-title">Algorithm</div>
+        <div class="algo-grid">
+          <button class="algo-btn" onclick="selectAlgo(&#39;bfs&#39;,this)">
+            <span class="algo-name">BFS</span>
+            <span class="algo-desc">Breadth-First Search</span>
+          </button>
+          <button class="algo-btn" onclick="selectAlgo(&#39;dfs&#39;,this)">
+            <span class="algo-name">DFS</span>
+            <span class="algo-desc">Depth-First Search</span>
+          </button>
+          <button class="algo-btn active" onclick="selectAlgo(&#39;astar&#39;,this)">
+            <span class="algo-name">A* Search</span>
+            <span class="algo-desc">Optimal Heuristic</span>
+          </button>
+          <button class="algo-btn" onclick="selectAlgo(&#39;gbfs&#39;,this)">
+            <span class="algo-name">GBFS</span>
+            <span class="algo-desc">Greedy Best-First</span>
+          </button>
+        </div>
+        <div class="algo-info-box show" id="algo-info"><strong>A* Search</strong> — Combines path cost g(n) + heuristic h(n). Uses Manhattan Distance heuristic. <em>Optimal and complete</em>. The gold standard for 8-puzzle solving.</div>
+        <div style="margin-top:10px">
+          <button class="btn primary" onclick="solveCurrentAlgo()" id="solve-btn" style="width:100%">▶ Solve with <span id="solve-algo-name">A* Search</span></button>
+        </div>
+      </div>
+      
+      <!-- Hint Box -->
+      <div class="hint-box" id="hint-box"><div class="hint-title">💡 Next Best Move</div><div class="hint-text">Move tile <strong>2</strong> ↑ Up. Optimal from here: <strong>22 moves</strong>.</div></div>
+    </div>
+    
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+      
+      <!-- Playback -->
+      <div class="panel" id="solution-panel">
+        <div class="panel-title">Solution Steps</div>
+        <div id="no-solution-msg" style="color: var(--muted); font-size: 0.85rem; text-align: center; padding: 20px; display: block;">
+          Select an algorithm and click Solve to see the solution steps.
+        </div>
+        <div id="solution-content" style="display: none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div>
+              <span id="sol-algo-badge" class="chip astar">ASTAR</span>
+              <span style="font-size:0.8rem;color:var(--muted);margin-left:8px"><span id="sol-steps-count">20</span> steps · <span id="sol-nodes-count">293</span> nodes explored</span>
+            </div>
+            <div class="playback-controls">
+              <button class="btn" onclick="prevStep()" id="prev-btn" style="padding:6px 10px">◀</button>
+              <button class="btn primary" onclick="togglePlay()" id="play-btn" style="padding:6px 10px">▶ Play</button>
+              <button class="btn" onclick="nextStep()" id="next-btn" style="padding:6px 10px">▶▶</button>
+              <input type="range" class="speed-slider" id="speed-slider" min="1" max="10" value="5">
+              <span style="font-size:0.7rem;color:var(--muted)">Speed</span>
+            </div>
+          </div>
+          <div class="steps-container" id="steps-container"><div class="step-item done" id="step-0"><div class="step-num">Start</div><div class="step-board"><div class="step-cell">4</div><div class="step-cell">3</div><div class="step-cell">5</div><div class="step-cell">8</div><div class="step-cell">7</div><div class="step-cell">2</div><div class="step-cell">6</div><div class="step-cell">1</div><div class="step-cell empty"></div></div><div class="step-info"><div class="step-direction">Initial State</div></div></div><div class="step-item done" id="step-1"><div class="step-num">#1</div><div class="step-board"><div class="step-cell">4</div><div class="step-cell">3</div><div class="step-cell">5</div><div class="step-cell">8</div><div class="step-cell">7</div><div class="step-cell">2</div><div class="step-cell">6</div><div class="step-cell empty"></div><div class="step-cell moved">1</div></div><div class="step-info"><div class="step-direction">Move 1 ←</div>
+       <div class="step-detail">Manhattan: 17</div></div></div><div class="step-item done" id="step-2"><div class="step-num">#2</div><div class="step-board"><div class="step-cell">4</div><div class="step-cell">3</div><div class="step-cell">5</div><div class="step-cell">8</div><div class="step-cell">7</div><div class="step-cell">2</div><div class="step-cell empty"></div><div class="step-cell moved">6</div><div class="step-cell">1</div></div><div class="step-info"><div class="step-direction">Move 6 ←</div>
+       <div class="step-detail">Manhattan: 16</div></div></div><div class="step-item done" id="step-3"><div class="step-num">#3</div><div class="step-board"><div class="step-cell">4</div><div class="step-cell">3</div><div class="step-cell">5</div><div class="step-cell empty"></div><div class="step-cell">7</div><div class="step-cell">2</div><div class="step-cell moved">8</div><div class="step-cell">6</div><div class="step-cell">1</div></div><div class="step-info"><div class="step-direction">Move 8 ↑</div>
+       <div class="step-detail">Manhattan: 15</div></div></div><div class="step-item done" id="step-4"><div class="step-num">#4</div><div class="step-board"><div class="step-cell">4</div><div class="step-cell">3</div><div class="step-cell">5</div><div class="step-cell moved">7</div><div class="step-cell empty"></div><div class="step-cell">2</div><div class="step-cell">8</div><div class="step-cell">6</div><div class="step-cell">1</div></div><div class="step-info"><div class="step-direction">Move 7 →</div>
+       <div class="step-detail">Manhattan: 14</div></div></div><div class="step-item done" id="step-5"><div class="step-num">#5</div><div class="step-board"><div class="step-cell">4</div><div class="step-cell">3</div><div class="step-cell">5</div><div class="step-cell">7</div><div class="step-cell moved">2</div><div class="step-cell empty"></div><div class="step-cell">8</div><div class="step-cell">6</div><div class="step-cell">1</div></div><div class="step-info"><div class="step-direction">Move 2 →</div>
+       <div class="step-detail">Manhattan: 13</div></div></div><div class="step-item done" id="step-6"><div class="step-num">#6</div><div class="step-board"><div class="step-cell">4</div><div class="step-cell">3</div><div class="step-cell">5</div><div class="step-cell">7</div><div class="step-cell">2</div><div class="step-cell moved">1</div><div class="step-cell">8</div><div class="step-cell">6</div><div class="step-cell empty"></div></div><div class="step-info"><div class="step-direction">Move 1 ↓</div>
+       <div class="step-detail">Manhattan: 12</div></div></div><div class="step-item done" id="step-7"><div class="step-num">#7</div><div class="step-board"><div class="step-cell">4</div><div class="step-cell">3</div><div class="step-cell">5</div><div class="step-cell">7</div><div class="step-cell">2</div><div class="step-cell">1</div><div class="step-cell">8</div><div class="step-cell empty"></div><div class="step-cell moved">6</div></div><div class="step-info"><div class="step-direction">Move 6 ←</div>
+       <div class="step-detail">Manhattan: 11</div></div></div><div class="step-item done" id="step-8"><div class="step-num">#8</div><div class="step-board"><div class="step-cell">4</div><div class="step-cell">3</div><div class="step-cell">5</div><div class="step-cell">7</div><div class="step-cell">2</div><div class="step-cell">1</div><div class="step-cell empty"></div><div class="step-cell moved">8</div><div class="step-cell">6</div></div><div class="step-info"><div class="step-direction">Move 8 ←</div>
+       <div class="step-detail">Manhattan: 10</div></div></div><div class="step-item done" id="step-9"><div class="step-num">#9</div><div class="step-board"><div class="step-cell">4</div><div class="step-cell">3</div><div class="step-cell">5</div><div class="step-cell empty"></div><div class="step-cell">2</div><div class="step-cell">1</div><div class="step-cell moved">7</div><div class="step-cell">8</div><div class="step-cell">6</div></div><div class="step-info"><div class="step-direction">Move 7 ↑</div>
+       <div class="step-detail">Manhattan: 9</div></div></div><div class="step-item done" id="step-10"><div class="step-num">#10</div><div class="step-board"><div class="step-cell">4</div><div class="step-cell">3</div><div class="step-cell">5</div><div class="step-cell moved">2</div><div class="step-cell empty"></div><div class="step-cell">1</div><div class="step-cell">7</div><div class="step-cell">8</div><div class="step-cell">6</div></div><div class="step-info"><div class="step-direction">Move 2 →</div>
+       <div class="step-detail">Manhattan: 10</div></div></div><div class="step-item done" id="step-11"><div class="step-num">#11</div><div class="step-board"><div class="step-cell">4</div><div class="step-cell">3</div><div class="step-cell">5</div><div class="step-cell">2</div><div class="step-cell moved">1</div><div class="step-cell empty"></div><div class="step-cell">7</div><div class="step-cell">8</div><div class="step-cell">6</div></div><div class="step-info"><div class="step-direction">Move 1 →</div>
+       <div class="step-detail">Manhattan: 9</div></div></div><div class="step-item done" id="step-12"><div class="step-num">#12</div><div class="step-board"><div class="step-cell">4</div><div class="step-cell">3</div><div class="step-cell empty"></div><div class="step-cell">2</div><div class="step-cell">1</div><div class="step-cell moved">5</div><div class="step-cell">7</div><div class="step-cell">8</div><div class="step-cell">6</div></div><div class="step-info"><div class="step-direction">Move 5 ↑</div>
+       <div class="step-detail">Manhattan: 8</div></div></div><div class="step-item done" id="step-13"><div class="step-num">#13</div><div class="step-board"><div class="step-cell">4</div><div class="step-cell empty"></div><div class="step-cell moved">3</div><div class="step-cell">2</div><div class="step-cell">1</div><div class="step-cell">5</div><div class="step-cell">7</div><div class="step-cell">8</div><div class="step-cell">6</div></div><div class="step-info"><div class="step-direction">Move 3 ←</div>
+       <div class="step-detail">Manhattan: 7</div></div></div><div class="step-item done" id="step-14"><div class="step-num">#14</div><div class="step-board"><div class="step-cell">4</div><div class="step-cell moved">1</div><div class="step-cell">3</div><div class="step-cell">2</div><div class="step-cell empty"></div><div class="step-cell">5</div><div class="step-cell">7</div><div class="step-cell">8</div><div class="step-cell">6</div></div><div class="step-info"><div class="step-direction">Move 1 ↓</div>
+       <div class="step-detail">Manhattan: 6</div></div></div><div class="step-item done" id="step-15"><div class="step-num">#15</div><div class="step-board"><div class="step-cell">4</div><div class="step-cell">1</div><div class="step-cell">3</div><div class="step-cell empty"></div><div class="step-cell moved">2</div><div class="step-cell">5</div><div class="step-cell">7</div><div class="step-cell">8</div><div class="step-cell">6</div></div><div class="step-info"><div class="step-direction">Move 2 ←</div>
+       <div class="step-detail">Manhattan: 5</div></div></div><div class="step-item done" id="step-16"><div class="step-num">#16</div><div class="step-board"><div class="step-cell empty"></div><div class="step-cell">1</div><div class="step-cell">3</div><div class="step-cell moved">4</div><div class="step-cell">2</div><div class="step-cell">5</div><div class="step-cell">7</div><div class="step-cell">8</div><div class="step-cell">6</div></div><div class="step-info"><div class="step-direction">Move 4 ↑</div>
+       <div class="step-detail">Manhattan: 4</div></div></div><div class="step-item done" id="step-17"><div class="step-num">#17</div><div class="step-board"><div class="step-cell moved">1</div><div class="step-cell empty"></div><div class="step-cell">3</div><div class="step-cell">4</div><div class="step-cell">2</div><div class="step-cell">5</div><div class="step-cell">7</div><div class="step-cell">8</div><div class="step-cell">6</div></div><div class="step-info"><div class="step-direction">Move 1 →</div>
+       <div class="step-detail">Manhattan: 3</div></div></div><div class="step-item done" id="step-18"><div class="step-num">#18</div><div class="step-board"><div class="step-cell">1</div><div class="step-cell moved">2</div><div class="step-cell">3</div><div class="step-cell">4</div><div class="step-cell empty"></div><div class="step-cell">5</div><div class="step-cell">7</div><div class="step-cell">8</div><div class="step-cell">6</div></div><div class="step-info"><div class="step-direction">Move 2 ↓</div>
+       <div class="step-detail">Manhattan: 2</div></div></div><div class="step-item done" id="step-19"><div class="step-num">#19</div><div class="step-board"><div class="step-cell">1</div><div class="step-cell">2</div><div class="step-cell">3</div><div class="step-cell">4</div><div class="step-cell moved">5</div><div class="step-cell empty"></div><div class="step-cell">7</div><div class="step-cell">8</div><div class="step-cell">6</div></div><div class="step-info"><div class="step-direction">Move 5 →</div>
+       <div class="step-detail">Manhattan: 1</div></div></div><div class="step-item current" id="step-20"><div class="step-num">#20</div><div class="step-board"><div class="step-cell">1</div><div class="step-cell">2</div><div class="step-cell">3</div><div class="step-cell">4</div><div class="step-cell">5</div><div class="step-cell moved">6</div><div class="step-cell">7</div><div class="step-cell">8</div><div class="step-cell empty"></div></div><div class="step-info"><div class="step-direction">Move 6 ↓</div>
+       <div class="step-detail">Manhattan: 0</div></div></div></div>
+        </div>
+      </div>
+      
+      <!-- Comparison Table -->
+      <div class="panel">
+        <div class="panel-title">Algorithm Comparison</div>
+        <div id="comparison-placeholder" style="color: var(--muted); font-size: 0.85rem; text-align: center; padding: 15px; display: none;">
+          Click <strong style="color:var(--text)">"Compare All"</strong> to run all algorithms and compare results.
+        </div>
+        <div id="comparison-content" style="display: block;">
+          <table class="comparison-table" id="comp-table">
+            <thead><tr>
+              <th>Algorithm</th><th>Steps</th><th>Nodes</th><th>Time</th><th>Performance</th>
+            </tr></thead>
+            <tbody id="comp-body"><tr class="best">
+          <td><span style="color:#7c5cfc">BFS</span> 🏆</td>
+          <td>18</td>
+          <td>14,580</td>
+          <td>27.1ms</td>
+          <td class="bar-cell">
+            <div class="bar"><div class="bar-fill" style="width:1%;background:#7c5cfc"></div></div>
+            <div style="font-size:0.65rem;color:var(--muted);margin-top:2px">1% nodes</div>
+          </td></tr><tr>
+          <td><span style="color:#fc5c7d">DFS</span></td>
+          <td>26</td>
+          <td>1,302,897</td>
+          <td>915.2ms</td>
+          <td class="bar-cell">
+            <div class="bar"><div class="bar-fill" style="width:100%;background:#fc5c7d"></div></div>
+            <div style="font-size:0.65rem;color:var(--muted);margin-top:2px">100% nodes</div>
+          </td></tr><tr class="best">
+          <td><span style="color:#56cfb2">A*</span> 🏆</td>
+          <td>18</td>
+          <td>154</td>
+          <td>0.6ms</td>
+          <td class="bar-cell">
+            <div class="bar"><div class="bar-fill" style="width:0%;background:#56cfb2"></div></div>
+            <div style="font-size:0.65rem;color:var(--muted);margin-top:2px">0% nodes</div>
+          </td></tr><tr>
+          <td><span style="color:#fca05c">GBFS</span></td>
+          <td>46</td>
+          <td>333</td>
+          <td>1.4ms</td>
+          <td class="bar-cell">
+            <div class="bar"><div class="bar-fill" style="width:0%;background:#fca05c"></div></div>
+            <div style="font-size:0.65rem;color:var(--muted);margin-top:2px">0% nodes</div>
+          </td></tr></tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px">
+          <button class="btn primary" onclick="compareAll()" id="compare-btn" style="width:100%">🔬 Compare All Algorithms</button>
+        </div>
+      </div>
+      
+      <!-- Algorithm Guide -->
+      <div class="panel">
+        <div class="panel-title">Algorithm Guide</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="background:var(--surface);border-radius:10px;padding:14px;border-left:3px solid var(--accent)">
+            <div style="font-weight:700;margin-bottom:6px">BFS <span class="chip bfs" style="margin-left:4px">Optimal</span></div>
+            <div style="font-size:0.75rem;color:var(--muted);line-height:1.5">Explores level by level. Guarantees the <strong style="color:var(--text)">shortest path</strong>. Uses O(b^d) memory. Best for shallow solutions.</div>
+          </div>
+          <div style="background:var(--surface);border-radius:10px;padding:14px;border-left:3px solid var(--accent2)">
+            <div style="font-weight:700;margin-bottom:6px">DFS <span class="chip dfs" style="margin-left:4px">Memory</span></div>
+            <div style="font-size:0.75rem;color:var(--muted);line-height:1.5">Goes deep first. <strong style="color:var(--text)">Not optimal</strong> — may find longer paths. Low memory usage. Fast but unpredictable.</div>
+          </div>
+          <div style="background:var(--surface);border-radius:10px;padding:14px;border-left:3px solid var(--success)">
+            <div style="font-weight:700;margin-bottom:6px">A* <span class="chip astar" style="margin-left:4px">Best</span></div>
+            <div style="font-size:0.75rem;color:var(--muted);line-height:1.5">Uses heuristic f(n)=g(n)+h(n). <strong style="color:var(--text)">Optimal &amp; efficient</strong>. Manhattan distance heuristic guides search.</div>
+          </div>
+          <div style="background:var(--surface);border-radius:10px;padding:14px;border-left:3px solid var(--warning)">
+            <div style="font-weight:700;margin-bottom:6px">GBFS <span class="chip gbfs" style="margin-left:4px">Fast</span></div>
+            <div style="font-size:0.75rem;color:var(--muted);line-height:1.5">Uses only heuristic h(n). <strong style="color:var(--text)">Very fast</strong> but not guaranteed optimal. Greedy approach.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Win Overlay -->
+<div class="win-overlay" id="win-overlay">
+  <div class="win-card">
+    <div class="win-emoji">🎉</div>
+    <div class="win-title">Puzzle Solved!</div>
+    <div style="color:var(--muted);margin-top:8px;font-size:0.9rem">Congratulations! You solved it!</div>
+    <div class="win-stats">
+      <div class="stat"><span class="stat-val" id="win-moves">22</span><span class="stat-label">Moves</span></div>
+      <div class="stat"><span class="stat-val gold" id="win-best">4</span><span class="stat-label">Best</span></div>
+      <div class="stat"><span class="stat-val" id="win-time">0:58</span><span class="stat-label">Time</span></div>
+    </div>
+    <div id="win-msg" style="color:var(--success);font-size:0.85rem;margin-bottom:20px"></div>
+    <div class="btn-row" style="justify-content:center">
+      <button class="btn primary" onclick="newGame();document.getElementById(&#39;win-overlay&#39;).classList.remove(&#39;show&#39;)">New Game</button>
+      <button class="btn" onclick="document.getElementById(&#39;win-overlay&#39;).classList.remove(&#39;show&#39;)">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Nothing to undo!</div>
+
+<script>
+// ===== STATE =====
+const GOAL = [1,2,3,4,5,6,7,8,0];
+let board = [...GOAL];
+let originalBoard = [...GOAL];
+let moveHistory = [];
+let moveCount = 0;
+let bestMoves = null;
+let timerInterval = null;
+let timerSeconds = 0;
+let gameStarted = false;
+let selectedAlgo = 'bfs';
+let currentSolution = null;
+let currentStepIdx = -1;
+let playInterval = null;
+let isPlaying = false;
+let difficulty = 10;
+
+const ALGO_INFO = {
+  bfs: '<strong>Breadth-First Search</strong> — Explores all states at depth d before depth d+1. <em>Guarantees shortest solution.</em> Can be slow for hard puzzles. Time: O(b^d), Space: O(b^d).',
+  dfs: '<strong>Depth-First Search</strong> — Dives deep following one path. <em>Not optimal</em> — solution may be longer than necessary. Uses depth limit to prevent infinite loops. Time: O(b^m), Space: O(bm).',
+  astar: '<strong>A* Search</strong> — Combines path cost g(n) + heuristic h(n). Uses Manhattan Distance heuristic. <em>Optimal and complete</em>. The gold standard for 8-puzzle solving.',
+  gbfs: '<strong>Greedy Best-First</strong> — Only uses heuristic h(n), ignores path cost. <em>Very fast</em> but may not find optimal solution. Uses Manhattan Distance to guide toward goal.',
+};
+
+// ===== INIT =====
+function init() {
+  newGame();
+}
+
+function setDifficulty(n, el) {
+  difficulty = n;
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+  if (el && el !== 'this') el.classList.add('active');
+}
+
+function newGame() {
+  stopPlay();
+  board = shuffleBoard(difficulty);
+  originalBoard = [...board];
+  moveHistory = [];
+  moveCount = 0;
+  timerSeconds = 0;
+  gameStarted = false;
+  clearInterval(timerInterval);
+  document.getElementById('moves-count').textContent = '0';
+  document.getElementById('timer-val').textContent = '0:00';
+  updateProgress();
+  currentSolution = null;
+  currentStepIdx = -1;
+  document.getElementById('solution-content').style.display = 'none';
+  document.getElementById('no-solution-msg').style.display = 'block';
+  document.getElementById('hint-box').classList.remove('show');
+  renderBoard();
+}
+
+function resetBoard() {
+  stopPlay();
+  board = [...originalBoard];
+  moveHistory = [];
+  moveCount = 0;
+  timerSeconds = 0;
+  gameStarted = false;
+  clearInterval(timerInterval);
+  document.getElementById('moves-count').textContent = '0';
+  document.getElementById('timer-val').textContent = '0:00';
+  updateProgress();
+  document.getElementById('hint-box').classList.remove('show');
+  renderBoard();
+  showToast('Board reset to initial state');
+}
+
+function shuffleBoard(n) {
+  let state = [...GOAL];
+  for (let i = 0; i < n * 10; i++) {
+    const empty = state.indexOf(0);
+    const neighbors = getNeighbors(empty);
+    const rnd = neighbors[Math.floor(Math.random() * neighbors.length)];
+    [state[empty], state[rnd]] = [state[rnd], state[empty]];
+  }
+  if (!isSolvable(state)) {
+    // swap two non-zero tiles to fix parity
+    [state[0], state[1]] = [state[1], state[0]];
+    if (state[0] === 0 || state[1] === 0) [state[1], state[2]] = [state[2], state[1]];
+  }
+  return state;
+}
+
+function isSolvable(state) {
+  let inv = 0;
+  const arr = state.filter(x => x !== 0);
+  for (let i = 0; i < arr.length; i++)
+    for (let j = i+1; j < arr.length; j++)
+      if (arr[i] > arr[j]) inv++;
+  return inv % 2 === 0;
+}
+
+function getNeighbors(idx) {
+  const r = Math.floor(idx/3), c = idx%3;
+  const res = [];
+  if (r > 0) res.push(idx-3);
+  if (r < 2) res.push(idx+3);
+  if (c > 0) res.push(idx-1);
+  if (c < 2) res.push(idx+1);
+  return res;
+}
+
+// ===== RENDER =====
+function renderBoard(highlightIdx = -1) {
+  const el = document.getElementById('board');
+  el.innerHTML = '';
+  board.forEach((val, idx) => {
+    const tile = document.createElement('div');
+    tile.className = 'tile ' + (val === 0 ? 'empty' : 'number');
+    tile.textContent = val === 0 ? '' : val;
+    if (val !== 0) tile.onclick = () => handleTileClick(idx);
+    if (idx === highlightIdx && val !== 0) tile.classList.add('hint-tile');
+    el.appendChild(tile);
+  });
+  updateProgress();
+}
+
+function updateProgress() {
+  let correct = 0;
+  board.forEach((v, i) => { if (v === GOAL[i]) correct++; });
+  const pct = Math.round((correct / 9) * 100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-pct').textContent = pct + '%';
+}
+
+// ===== TILE CLICK =====
+function handleTileClick(idx) {
+  const empty = board.indexOf(0);
+  if (!getNeighbors(empty).includes(idx)) return;
+  
+  if (!gameStarted) {
+    gameStarted = true;
+    timerInterval = setInterval(() => {
+      timerSeconds++;
+      const m = Math.floor(timerSeconds/60), s = timerSeconds%60;
+      document.getElementById('timer-val').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    }, 1000);
+  }
+  
+  moveHistory.push({board: [...board], empty});
+  [board[empty], board[idx]] = [board[idx], board[empty]];
+  moveCount++;
+  document.getElementById('moves-count').textContent = moveCount;
+  
+  const tiles = document.getElementById('board').children;
+  tiles[idx].classList.add('solving');
+  setTimeout(() => renderBoard(), 150);
+  document.getElementById('hint-box').classList.remove('show');
+  
+  if (isGoal(board)) {
+    clearInterval(timerInterval);
+    if (bestMoves === null || moveCount < bestMoves) {
+      bestMoves = moveCount;
+      document.getElementById('best-moves').textContent = bestMoves;
+    }
+    setTimeout(showWin, 300);
+  }
+}
+
+function undoMove() {
+  if (moveHistory.length === 0) { showToast('Nothing to undo!'); return; }
+  const prev = moveHistory.pop();
+  board = prev.board;
+  moveCount--;
+  document.getElementById('moves-count').textContent = moveCount;
+  renderBoard();
+  document.getElementById('hint-box').classList.remove('show');
+}
+
+function isGoal(state) { return state.every((v, i) => v === GOAL[i]); }
+
+// ===== WIN =====
+function showWin() {
+  document.getElementById('board').querySelectorAll('.tile.number').forEach((t,i) => {
+    setTimeout(() => t.classList.add('win-anim'), i * 60);
+  });
+  document.getElementById('win-moves').textContent = moveCount;
+  document.getElementById('win-best').textContent = bestMoves || moveCount;
+  const m = Math.floor(timerSeconds/60), s = timerSeconds%60;
+  document.getElementById('win-time').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  const optimal = currentSolution ? currentSolution.steps.length : null;
+  document.getElementById('win-msg').textContent = optimal ? 
+    (moveCount === optimal ? '🏆 Optimal solution!' : `Optimal was ${optimal} moves`) : '';
+  document.getElementById('win-overlay').classList.add('show');
+}
+
+// ===== HINT =====
+function showHint() {
+  const sol = astar(board, 50000);
+  const box = document.getElementById('hint-box');
+  if (!sol || sol.steps.length === 0) {
+    box.classList.add('show');
+    document.getElementById('hint-text').textContent = 'Already at goal or no solution found!';
+    return;
+  }
+  const nextBoard = sol.steps[1];
+  const empty = board.indexOf(0);
+  let movedTile, direction;
+  for (let i = 0; i < 9; i++) {
+    if (board[i] !== nextBoard[i] && board[i] !== 0) {
+      movedTile = board[i];
+      const diff = empty - i;
+      direction = diff === 1 ? '→ Right' : diff === -1 ? '← Left' : diff === 3 ? '↓ Down' : '↑ Up';
+      renderBoard(i);
+      break;
+    }
+  }
+  box.classList.add('show');
+  document.getElementById('hint-text').textContent = 
+    `Move tile <strong>${movedTile}</strong> ${direction}. This puzzle can be solved in <strong>${sol.steps.length-1} more moves</strong>.`;
+  box.innerHTML = `<div class="hint-title">💡 Next Best Move</div><div class="hint-text">Move tile <strong>${movedTile}</strong> ${direction}. Optimal from here: <strong>${sol.steps.length-1} moves</strong>.</div>`;
+}
+
+// ===== ALGO SELECTION =====
+function selectAlgo(algo, btn) {
+  selectedAlgo = algo;
+  document.querySelectorAll('.algo-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('algo-info').textContent = '';
+  document.getElementById('algo-info').innerHTML = ALGO_INFO[algo];
+  document.getElementById('algo-info').classList.add('show');
+  document.getElementById('solve-algo-name').textContent = btn.querySelector('.algo-name').textContent;
+}
+
+function solveCurrentAlgo() {
+  stopPlay();
+  document.getElementById('solve-btn').textContent = '⏳ Solving...';
+  document.getElementById('solve-btn').disabled = true;
+  
+  setTimeout(() => {
+    const result = runAlgo(selectedAlgo, board);
+    document.getElementById('solve-btn').innerHTML = `▶ Solve with <span id="solve-algo-name">${document.querySelector('.algo-btn.active .algo-name').textContent}</span>`;
+    document.getElementById('solve-btn').disabled = false;
+    
+    if (!result || result.steps.length <= 1) {
+      if (isGoal(board)) { showToast('Board is already solved!'); return; }
+      showToast('No solution found (depth limit reached)');
+      document.getElementById('no-solution-msg').style.display = 'block';
+      document.getElementById('solution-content').style.display = 'none';
+      return;
+    }
+    
+    currentSolution = result;
+    currentStepIdx = 0;
+    renderSolution(result);
+    document.getElementById('no-solution-msg').style.display = 'none';
+    document.getElementById('solution-content').style.display = 'block';
+    showToast(`✓ Found solution in ${result.steps.length - 1} steps`);
+  }, 50);
+}
+
+// ===== SOLVERS =====
+function stateKey(s) { return s.join(','); }
+
+function bfs(startBoard, maxNodes = 100000) {
+  if (isGoal(startBoard)) return { steps: [startBoard], nodesExplored: 1 };
+  const queue = [[startBoard, [startBoard]]];
+  const visited = new Set([stateKey(startBoard)]);
+  let nodes = 0;
+  while (queue.length > 0) {
+    const [state, path] = queue.shift();
+    nodes++;
+    if (nodes > maxNodes) return null;
+    const empty = state.indexOf(0);
+    for (const nb of getNeighbors(empty)) {
+      const next = [...state];
+      [next[empty], next[nb]] = [next[nb], next[empty]];
+      const key = stateKey(next);
+      if (visited.has(key)) continue;
+      visited.add(key);
+      const newPath = [...path, next];
+      if (isGoal(next)) return { steps: newPath, nodesExplored: nodes };
+      queue.push([next, newPath]);
+    }
+  }
+  return null;
+}
+
+function dfs(startBoard, maxDepth = 31) {
+  if (isGoal(startBoard)) return { steps: [startBoard], nodesExplored: 1 };
+  let nodes = 0;
+  function rec(state, path, depth, visited) {
+    if (isGoal(state)) return path;
+    if (depth >= maxDepth) return null;
+    nodes++;
+    const empty = state.indexOf(0);
+    for (const nb of getNeighbors(empty)) {
+      const next = [...state];
+      [next[empty], next[nb]] = [next[nb], next[empty]];
+      const key = stateKey(next);
+      if (visited.has(key)) continue;
+      visited.add(key);
+      const res = rec(next, [...path, next], depth + 1, visited);
+      if (res) return res;
+      visited.delete(key);
+    }
+    return null;
+  }
+  const res = rec(startBoard, [startBoard], 0, new Set([stateKey(startBoard)]));
+  return res ? { steps: res, nodesExplored: nodes } : null;
+}
+
+function manhattan(state) {
+  let h = 0;
+  for (let i = 0; i < 9; i++) {
+    if (state[i] === 0) continue;
+    const target = GOAL.indexOf(state[i]);
+    h += Math.abs(Math.floor(i/3) - Math.floor(target/3)) + Math.abs(i%3 - target%3);
+  }
+  return h;
+}
+
+function astar(startBoard, maxNodes = 100000) {
+  if (isGoal(startBoard)) return { steps: [startBoard], nodesExplored: 1 };
+  const pq = [[manhattan(startBoard), 0, startBoard, [startBoard]]];
+  const dist = new Map([[stateKey(startBoard), 0]]);
+  let nodes = 0;
+  while (pq.length > 0) {
+    pq.sort((a,b) => a[0]-b[0]);
+    const [, g, state, path] = pq.shift();
+    nodes++;
+    if (nodes > maxNodes) return null;
+    if (isGoal(state)) return { steps: path, nodesExplored: nodes };
+    const empty = state.indexOf(0);
+    for (const nb of getNeighbors(empty)) {
+      const next = [...state];
+      [next[empty], next[nb]] = [next[nb], next[empty]];
+      const ng = g + 1;
+      const key = stateKey(next);
+      if (dist.has(key) && dist.get(key) <= ng) continue;
+      dist.set(key, ng);
+      pq.push([ng + manhattan(next), ng, next, [...path, next]]);
+    }
+  }
+  return null;
+}
+
+function gbfs(startBoard, maxNodes = 100000) {
+  if (isGoal(startBoard)) return { steps: [startBoard], nodesExplored: 1 };
+  const pq = [[manhattan(startBoard), startBoard, [startBoard]]];
+  const visited = new Set([stateKey(startBoard)]);
+  let nodes = 0;
+  while (pq.length > 0) {
+    pq.sort((a,b) => a[0]-b[0]);
+    const [, state, path] = pq.shift();
+    nodes++;
+    if (nodes > maxNodes) return null;
+    if (isGoal(state)) return { steps: path, nodesExplored: nodes };
+    const empty = state.indexOf(0);
+    for (const nb of getNeighbors(empty)) {
+      const next = [...state];
+      [next[empty], next[nb]] = [next[nb], next[empty]];
+      const key = stateKey(next);
+      if (visited.has(key)) continue;
+      visited.add(key);
+      pq.push([manhattan(next), next, [...path, next]]);
+    }
+  }
+  return null;
+}
+
+function runAlgo(algo, startBoard) {
+  if (algo === 'bfs') return bfs(startBoard);
+  if (algo === 'dfs') return dfs(startBoard);
+  if (algo === 'astar') return astar(startBoard);
+  if (algo === 'gbfs') return gbfs(startBoard);
+}
+
+// ===== SOLUTION DISPLAY =====
+function renderSolution(result) {
+  const algoColors = { bfs: 'bfs', dfs: 'dfs', astar: 'astar', gbfs: 'gbfs' };
+  const badge = document.getElementById('sol-algo-badge');
+  badge.className = 'chip ' + algoColors[selectedAlgo];
+  badge.textContent = selectedAlgo.toUpperCase();
+  document.getElementById('sol-steps-count').textContent = result.steps.length - 1;
+  document.getElementById('sol-nodes-count').textContent = result.nodesExplored.toLocaleString();
+  
+  const cont = document.getElementById('steps-container');
+  cont.innerHTML = '';
+  const dirs = ['', '↑','↓','←','→'];
+  
+  result.steps.forEach((state, i) => {
+    const item = document.createElement('div');
+    item.className = 'step-item' + (i === 0 ? ' current' : '');
+    item.id = 'step-' + i;
+    
+    let dir = '', movedTile = '';
+    if (i > 0) {
+      const prev = result.steps[i-1];
+      const prevEmpty = prev.indexOf(0);
+      const curEmpty = state.indexOf(0);
+      movedTile = state[prevEmpty];
+      const diff = curEmpty - prevEmpty;
+      dir = diff === 1 ? '→' : diff === -1 ? '←' : diff === 3 ? '↓' : '↑';
+    }
+    
+    // Mini board
+    const miniBoard = document.createElement('div');
+    miniBoard.className = 'step-board';
+    state.forEach((v, idx) => {
+      const cell = document.createElement('div');
+      cell.className = 'step-cell' + (v === 0 ? ' empty' : '');
+      if (i > 0 && idx === result.steps[i-1].indexOf(0)) cell.classList.add('moved');
+      cell.textContent = v === 0 ? '' : v;
+      miniBoard.appendChild(cell);
+    });
+    
+    item.innerHTML = `<div class="step-num">${i === 0 ? 'Start' : '#' + i}</div>`;
+    item.appendChild(miniBoard);
+    
+    const info = document.createElement('div');
+    info.className = 'step-info';
+    info.innerHTML = i === 0 ? 
+      `<div class="step-direction">Initial State</div>` :
+      `<div class="step-direction">Move ${movedTile} ${dir}</div>
+       <div class="step-detail">Manhattan: ${manhattan(state)}</div>`;
+    item.appendChild(info);
+    
+    item.onclick = () => jumpToStep(i);
+    cont.appendChild(item);
+  });
+}
+
+function jumpToStep(idx) {
+  if (!currentSolution) return;
+  stopPlay();
+  const prev = currentStepIdx;
+  currentStepIdx = idx;
+  board = [...currentSolution.steps[idx]];
+  renderBoard();
+  
+  document.querySelectorAll('.step-item').forEach((el, i) => {
+    el.classList.remove('current', 'done');
+    if (i < idx) el.classList.add('done');
+    if (i === idx) el.classList.add('current');
+  });
+  
+  const stepEl = document.getElementById('step-' + idx);
+  if (stepEl) stepEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function prevStep() {
+  if (currentStepIdx > 0) jumpToStep(currentStepIdx - 1);
+}
+
+function nextStep() {
+  if (currentSolution && currentStepIdx < currentSolution.steps.length - 1) 
+    jumpToStep(currentStepIdx + 1);
+}
+
+function togglePlay() {
+  if (isPlaying) stopPlay();
+  else startPlay();
+}
+
+function startPlay() {
+  if (!currentSolution) return;
+  isPlaying = true;
+  document.getElementById('play-btn').textContent = '⏸ Pause';
+  const speed = 11 - parseInt(document.getElementById('speed-slider').value);
+  playInterval = setInterval(() => {
+    if (currentStepIdx >= currentSolution.steps.length - 1) { stopPlay(); return; }
+    nextStep();
+  }, speed * 150);
+}
+
+function stopPlay() {
+  isPlaying = false;
+  clearInterval(playInterval);
+  const btn = document.getElementById('play-btn');
+  if (btn) btn.textContent = '▶ Play';
+}
+
+// ===== COMPARE ALL =====
+function compareAll() {
+  document.getElementById('compare-btn').textContent = '⏳ Running all algorithms...';
+  document.getElementById('compare-btn').disabled = true;
+  
+  setTimeout(() => {
+    const algos = ['bfs', 'dfs', 'astar', 'gbfs'];
+    const colors = { bfs: '#7c5cfc', dfs: '#fc5c7d', astar: '#56cfb2', gbfs: '#fca05c' };
+    const names = { bfs: 'BFS', dfs: 'DFS', astar: 'A*', gbfs: 'GBFS' };
+    const results = {};
+    
+    algos.forEach(algo => {
+      const t0 = performance.now();
+      const res = runAlgo(algo, board);
+      const t1 = performance.now();
+      results[algo] = res ? { 
+        steps: res.steps.length - 1, 
+        nodes: res.nodesExplored,
+        time: (t1-t0).toFixed(1)
+      } : null;
+    });
+    
+    // find best
+    const validResults = algos.filter(a => results[a]);
+    const bestSteps = Math.min(...validResults.map(a => results[a].steps));
+    const maxNodes = Math.max(...validResults.map(a => results[a].nodes));
+    
+    const tbody = document.getElementById('comp-body');
+    tbody.innerHTML = '';
+    
+    algos.forEach(algo => {
+      const r = results[algo];
+      const tr = document.createElement('tr');
+      if (r && r.steps === bestSteps) tr.className = 'best';
+      
+      if (r) {
+        const pct = Math.round((r.nodes / maxNodes) * 100);
+        tr.innerHTML = `
+          <td><span style="color:${colors[algo]}">${names[algo]}</span>${r.steps === bestSteps ? ' 🏆' : ''}</td>
+          <td>${r.steps}</td>
+          <td>${r.nodes.toLocaleString()}</td>
+          <td>${r.time}ms</td>
+          <td class="bar-cell">
+            <div class="bar"><div class="bar-fill" style="width:${pct}%;background:${colors[algo]}"></div></div>
+            <div style="font-size:0.65rem;color:var(--muted);margin-top:2px">${pct}% nodes</div>
+          </td>`;
+      } else {
+        tr.innerHTML = `<td>${names[algo]}</td><td colspan="4" style="color:var(--muted)">No solution found (limit exceeded)</td>`;
+      }
+      tbody.appendChild(tr);
+    });
+    
+    document.getElementById('comparison-placeholder').style.display = 'none';
+    document.getElementById('comparison-content').style.display = 'block';
+    document.getElementById('compare-btn').textContent = '🔬 Compare All Algorithms';
+    document.getElementById('compare-btn').disabled = false;
+  }, 100);
+}
+
+// ===== TOAST =====
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ===== KEYBOARD =====
+document.addEventListener('keydown', e => {
+  const empty = board.indexOf(0);
+  const moves = { ArrowUp: 3, ArrowDown: -3, ArrowLeft: 1, ArrowRight: -1 };
+  if (moves[e.key] !== undefined) {
+    const target = empty + moves[e.key];
+    if (target >= 0 && target < 9 && getNeighbors(empty).includes(target))
+      handleTileClick(target);
+  }
+  if (e.key === 'h' || e.key === 'H') showHint();
+  if (e.key === 'z' && e.ctrlKey) { e.preventDefault(); undoMove(); }
+});
+
+// Init algo info display
+document.getElementById('algo-info').innerHTML = ALGO_INFO['bfs'];
+
+// ===== DIFFICULTY BUTTONS FIX =====
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+
+init();
+</script>
+
+
+</body></html>
